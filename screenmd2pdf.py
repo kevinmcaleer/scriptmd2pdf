@@ -72,6 +72,37 @@ def load_font(size=12, override_path=None):
             pass
     return ImageFont.load_default()
 
+def load_bold_variant(base_font: ImageFont.ImageFont, base_path: str | None, size: int) -> ImageFont.ImageFont:
+    """Attempt to load a bold variant of the provided font. Fall back to base_font.
+    Heuristics: if a path was supplied or discovered, try common Bold filename patterns.
+    """
+    if not base_path or not os.path.exists(base_path):
+        return base_font
+    candidates = []
+    root, ext = os.path.splitext(base_path)
+    # Common replacements
+    if 'Regular' in root:
+        candidates.append(root.replace('Regular', 'Bold') + ext)
+    if 'Mono' in root and 'Bold' not in root:
+        candidates.append(root + '-Bold' + ext)
+    # Generic patterns
+    candidates.extend([
+        root + 'Bold' + ext,
+        root + '-Bold' + ext,
+        root.replace('-Regular', '-Bold') + ext,
+    ])
+    tried = set()
+    for c in candidates:
+        if c in tried:
+            continue
+        tried.add(c)
+        if os.path.exists(c):
+            try:
+                return ImageFont.truetype(c, size=size)
+            except Exception:  # noqa: BLE001
+                continue
+    return base_font
+
 # Types:
 # - scene: {"type":"scene","text":...}
 # - action: {"type":"action","text":...}
@@ -234,6 +265,8 @@ def draw_pdf(elements: List[Dict[str, Any]], out_path: str, title: str = "", fon
 
     # Font
     font = load_font(size=font_size, override_path=font_path)
+    # Try to get a bold variant for scene headings
+    bold_font = load_bold_variant(font, font_path, font_size) if font_path else font
     ascent, descent = font.getmetrics()
     line_h = ascent + descent + 2  # small leading
 
@@ -320,7 +353,7 @@ def draw_pdf(elements: List[Dict[str, Any]], out_path: str, title: str = "", fon
         if y + req_h > PAGE_H - MARGIN_B:
             new_page()
 
-    def draw_block(text: str, left: int, right_margin: int, extra_before=0, extra_after=0, align_right=False):
+    def draw_block(text: str, left: int, right_margin: int, extra_before=0, extra_after=0, align_right=False, use_bold=False):
         nonlocal y
         width = PAGE_W - left - right_margin
         wrapped = wrap_text(text, width) if text else [""]
@@ -334,7 +367,14 @@ def draw_pdf(elements: List[Dict[str, Any]], out_path: str, title: str = "", fon
                 x = PAGE_W - right_margin - tw
             else:
                 x = left
-            draw.text((x, y), l, font=font, fill="black")
+            if use_bold and bold_font != font:
+                draw.text((x, y), l, font=bold_font, fill="black")
+            elif use_bold and bold_font == font:
+                # Simulate bold by overdrawing with slight offsets
+                draw.text((x, y), l, font=font, fill="black")
+                draw.text((x+0.6, y), l, font=font, fill="black")
+            else:
+                draw.text((x, y), l, font=font, fill="black")
             y += line_h
         y += extra_after
 
@@ -352,7 +392,7 @@ def draw_pdf(elements: List[Dict[str, Any]], out_path: str, title: str = "", fon
             continue
 
         if t == "scene":
-            draw_block(el["text"].upper(), LEFT_SCENE, RIGHT_ACTION, extra_before=int(0.25*line_h), extra_after=int(0.25*line_h))
+            draw_block(el["text"].upper(), LEFT_SCENE, RIGHT_ACTION, extra_before=int(0.25*line_h), extra_after=int(0.25*line_h), use_bold=True)
         elif t == "shot":
             draw_block(el["text"].upper(), LEFT_ACTION, RIGHT_ACTION, extra_before=int(0.1*line_h), extra_after=int(0.1*line_h))
         elif t == "action":
