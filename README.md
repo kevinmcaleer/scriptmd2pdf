@@ -12,6 +12,7 @@ Convert a screenplay‑flavoured Markdown file into a properly formatted PDF (mo
 * Transitions (`>> CUT TO:`) – right aligned
 * Shot headings (`! CLOSE ON`)
 * Forced page breaks (`---`) – always start a new page
+* Bold scene headings (auto bold font variant; simulated if bold face missing)
 * Block comments starting with `//` are ignored
 * Block quotes / notes starting with single `>` are ignored (except `>>` transitions)
 * Adjustable font, size, and transition right margin
@@ -90,6 +91,13 @@ A detail description.
   * Parenthetical: Left 3.0".
   * Transition: Right aligned (right margin adjustable with `--transition-right`).
 * Monospaced layout using chosen / detected font.
+* Scene headings rendered in bold (if a bold TTF variant of the chosen font is found; otherwise a simulated bold via overdraw).
+
+### Bold Scene Headings
+The script tries to locate a bold variant of the supplied (or auto-detected) font using common filename patterns (e.g. replacing *Regular* with *Bold*). If it cannot find one, it simulates bold by drawing the heading text twice with a very slight horizontal offset. This keeps dependencies minimal while giving headings visual weight.
+
+### Page Breaks
+`---` always forces a new page regardless of `--break-style`. The option is retained for future flexibility (line / space rendering modes could be re-enabled later).
 
 ## Example Minimal Script
 
