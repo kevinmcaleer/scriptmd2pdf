@@ -17,6 +17,10 @@ Convert a screenplay‑flavoured Markdown file into a properly formatted PDF (mo
 * Block quotes / notes starting with single `>` are ignored (except `>>` transitions)
 * Adjustable font, size, and transition right margin
 * Optional shot list export (`--shot-list markdown|csv`) capturing scenes & shot headings with a first action summary snippet
+* Shot list PDF export (`--shot-list-pdf`) including optional landscape layout
+* Entity inventory (characters, locations, objects) appended to shot list outputs (`--entities`)
+* Landscape shot list PDF option for wider columns (`--shot-list-landscape`)
+* Razor‑sharp vector screenplay PDF rendering (`--vector` via ReportLab) instead of raster images
 
 ## Installation
 
@@ -46,6 +50,10 @@ python screenmd2pdf.py INPUT.md OUTPUT.pdf [options]
 | `--break-style page` | page | (Currently page breaks for `---` are always forced; this remains for forward compatibility.) |
 | `--transition-right 1.0` | 1.0 | Right margin in inches for right‑aligned transitions. Smaller values pull transitions further left. |
 | `--shot-list markdown` | (none) | Write a shot list beside the PDF. Pass `markdown` (table) or `csv`. Filename auto-derived next to output PDF. |
+| `--shot-list-pdf shots.pdf` | (none) | Generate a shot list as a PDF (table layout). |
+| `--shot-list-landscape` | off | Use landscape orientation for shot list PDF (more horizontal room, less wrapping). |
+| `--entities` | off | Include entity inventory (characters, locations, objects) in shot list (text/CSV/PDF). |
+| `--vector` | off | Use vector text PDF rendering (requires `reportlab`) for crisp non-blurry output. |
 
 ### Example
 
@@ -61,10 +69,14 @@ Generate a structured list of all scene headings and shot headings (lines starti
 * Heading: The raw heading text (e.g. `INT. KITCHEN - DAY`, `CLOSE ON`)
 * Summary: First non-empty action line following that heading (trimmed to ~120 chars)
 
-### Markdown Shot List
+### Markdown / CSV / PDF Variants
 
 ```bash
 python screenmd2pdf.py example_screenplay.md script.pdf --shot-list markdown
+# or CSV
+python screenmd2pdf.py example_screenplay.md script.pdf --shot-list shots.csv
+# or PDF (table rendered with wrapping)
+python screenmd2pdf.py example_screenplay.md script.pdf --shot-list-pdf shots.pdf
 ```
 
 Produces (example):
@@ -76,17 +88,28 @@ Produces (example):
 | SHOT  | CLOSE ON              | A detail description.             |
 ```
 
-### CSV Shot List
+### Landscape PDF & Entities
+
+Add `--shot-list-landscape` to widen columns (less wrapping) and `--entities` to append an inventory section:
 
 ```bash
-python screenmd2pdf.py example_screenplay.md script.pdf --shot-list csv
+python screenmd2pdf.py example_screenplay.md script.pdf --shot-list-pdf shots.pdf --shot-list-landscape --entities
 ```
 
-Writes a `.csv` file (UTF-8) with columns: `type,heading,summary`.
+Entity inventory groups: Characters, Locations (slugline location portion), and Objects/Props (heuristic uppercase tokens from action/shot text minus stop words).
 
-Filenames are derived from the output PDF name, e.g. `script_shots.md` or `script_shots.csv` placed alongside the PDF.
+Filenames:
+
+* Markdown: `<output>_shots.md`
+* CSV: `<output>_shots.csv`
+* PDF: custom path you supply (e.g. `shots.pdf`)
+
 
 If no descriptive action follows a heading, the summary cell is left blank.
+
+### Including Entities in Markdown / CSV
+
+Pass `--entities` with `--shot-list` to append an "Entity Inventory" section (Markdown) or extra rows (CSV) after the table.
 
 ## Markdown Syntax Reference
 
@@ -138,6 +161,21 @@ The script tries to locate a bold variant of the supplied (or auto-detected) fon
 ### Page Breaks
 
 `---` always forces a new page regardless of `--break-style`. The option is retained for future flexibility (line / space rendering modes could be re-enabled later).
+
+### Vector Rendering (Crisp Text)
+
+By default pages are rasterized images (simple, but fonts can look slightly soft depending on viewer scaling). Use `--vector` to enable a pure text PDF (via ReportLab) for razor‑sharp rendering and selectable/copyable text:
+
+```bash
+pip install reportlab
+python screenmd2pdf.py example_screenplay.md script.pdf --vector
+```
+
+Notes:
+
+* Bold scene headings use a detected bold TTF variant if available, else regular weight.
+* Vector mode currently ignores `--break-style` (page breaks always forced) just like raster mode.
+* Raster mode remains the default to avoid extra dependency.
 
 ## Example Minimal Script
 

@@ -418,6 +418,190 @@ def draw_pdf(elements: List[Dict[str, Any]], out_path: str, title: str = "", fon
     pages.append(img)
     pages[0].save(out_path, save_all=True, append_images=pages[1:])
 
+def draw_pdf_vector(elements: List[Dict[str, Any]], out_path: str, title: str = "", font_path: str | None = None, font_size: int = 12, transition_right_in: float = 1.0):
+    """Vector (text) PDF rendering using ReportLab for razor sharp output.
+
+    Falls back to Courier if no font path provided. Attempts bold variant registration for scene headings.
+    """
+    try:
+        from reportlab.pdfgen import canvas  # type: ignore
+        from reportlab.lib.pagesizes import letter  # type: ignore
+        from reportlab.pdfbase import pdfmetrics  # type: ignore
+        from reportlab.pdfbase.ttfonts import TTFont  # type: ignore
+    except ImportError as exc:  # pragma: no cover - dependency missing
+        raise SystemExit("ReportLab not installed. Install with: pip install reportlab") from exc
+
+    PAGE_W, PAGE_H = letter  # 612x792 points
+    # Indents
+    LEFT_SCENE = 1.5 * 72
+    LEFT_ACTION = 1.5 * 72
+    LEFT_CHAR = 3.5 * 72
+    LEFT_DIALOGUE = 2.5 * 72
+    LEFT_PAREN = 3.0 * 72
+    RIGHT_DIALOGUE = 2.5 * 72
+    RIGHT_ACTION = 1.0 * 72
+    RIGHT_TRANSITION = transition_right_in * 72
+    RIGHT_PAREN = 2.5 * 72
+    TOP_MARGIN = 1.0 * 72
+    BOTTOM_MARGIN = 1.0 * 72
+
+    # Font registration
+    base_font_name = "Courier"
+    bold_font_name = "Courier-Bold"
+    if font_path and os.path.exists(font_path):
+        try:
+            pdfmetrics.registerFont(TTFont("ScriptMono", font_path))
+            base_font_name = "ScriptMono"
+            # Try bold variant
+            bold_variant = None
+            root, ext = os.path.splitext(font_path)
+            for cand in [root.replace("Regular","Bold")+ext, root+"-Bold"+ext, root+"Bold"+ext]:
+                if os.path.exists(cand):
+                    try:
+                        pdfmetrics.registerFont(TTFont("ScriptMonoBold", cand))
+                        bold_variant = "ScriptMonoBold"
+                        break
+                    except OSError:
+                        continue
+            if bold_variant:
+                bold_font_name = bold_variant
+        except OSError:
+            pass
+
+    line_h = font_size * 1.2  # approximate leading
+
+    def string_width(txt: str, font_name: str, size: int) -> float:
+        try:
+            return pdfmetrics.stringWidth(txt, font_name, size)
+        except (KeyError, ValueError):
+            return len(txt) * (size * 0.6)
+
+    def wrap(txt: str, font_name: str, size: int, max_width: float) -> List[str]:
+        lines_out: List[str] = []
+        for raw_line in txt.split("\n"):
+            if string_width(raw_line, font_name, size) <= max_width:
+                lines_out.append(raw_line)
+                continue
+            words = raw_line.split()
+            if not words:
+                lines_out.append("")
+                continue
+            line = ""
+            for w in words:
+                test = w if not line else line+" "+w
+                if string_width(test, font_name, size) <= max_width:
+                    line = test
+                else:
+                    if line:
+                        lines_out.append(line)
+                    # Hard wrap very long token
+                    if string_width(w, font_name, size) > max_width:
+                        chunk = ""
+                        for ch in w:
+                            t2 = chunk + ch
+                            if string_width(t2, font_name, size) <= max_width:
+                                chunk = t2
+                            else:
+                                if chunk:
+                                    lines_out.append(chunk)
+                                chunk = ch
+                        if chunk:
+                            line = chunk
+                        else:
+                            line = ""
+                    else:
+                        line = w
+            if line:
+                lines_out.append(line)
+        return lines_out
+
+    c = canvas.Canvas(out_path, pagesize=letter)
+
+    def new_page():
+        c.showPage()
+        if title:
+            c.setFont(base_font_name, font_size)
+            title_w = string_width(title, base_font_name, font_size)
+            c.drawString((PAGE_W - title_w)/2, PAGE_H - TOP_MARGIN + (font_size*0.2), title)
+
+    # Title first page
+    if title:
+        c.setFont(base_font_name, font_size)
+        title_w = string_width(title, base_font_name, font_size)
+        c.drawString((PAGE_W - title_w)/2, PAGE_H - TOP_MARGIN + (font_size*0.2), title)
+
+    y = PAGE_H - TOP_MARGIN - line_h
+
+    def ensure_space(lines_needed: int):
+        nonlocal y
+        if y - (lines_needed * line_h) < BOTTOM_MARGIN:
+            new_page()
+            y = PAGE_H - TOP_MARGIN - line_h
+
+    for el in elements:
+        t = el["type"]
+        if t == "pagebreak":
+            new_page()
+            y = PAGE_H - TOP_MARGIN - line_h
+            continue
+        if t == "scene":
+            txt = el["text"].upper()
+            wrapped = wrap(txt, bold_font_name, font_size, PAGE_W - LEFT_SCENE - RIGHT_ACTION)
+            ensure_space(len(wrapped)+1)
+            c.setFont(bold_font_name, font_size)
+            for line in wrapped:
+                c.drawString(LEFT_SCENE, y, line)
+                y -= line_h
+            y -= line_h * 0.25
+        elif t == "shot":
+            txt = el["text"].upper()
+            wrapped = wrap(txt, base_font_name, font_size, PAGE_W - LEFT_ACTION - RIGHT_ACTION)
+            ensure_space(len(wrapped)+1)
+            c.setFont(base_font_name, font_size)
+            for line in wrapped:
+                c.drawString(LEFT_ACTION, y, line)
+                y -= line_h
+            y -= line_h * 0.1
+        elif t == "action":
+            txt = el["text"]
+            wrapped = wrap(txt, base_font_name, font_size, PAGE_W - LEFT_ACTION - RIGHT_ACTION)
+            ensure_space(len(wrapped)+1)
+            c.setFont(base_font_name, font_size)
+            for line in wrapped:
+                c.drawString(LEFT_ACTION, y, line)
+                y -= line_h
+            y -= line_h * 0.2
+        elif t == "dialogue":
+            # Character
+            c.setFont(base_font_name, font_size)
+            char_lines = wrap(el["character"].upper(), base_font_name, font_size, PAGE_W - LEFT_CHAR - RIGHT_DIALOGUE)
+            ensure_space(len(char_lines)+len(el.get("parentheticals", []))+len(el.get("lines", []))+2)
+            for line in char_lines:
+                c.drawString(LEFT_CHAR, y, line)
+                y -= line_h
+            # Parentheticals
+            for p in el.get("parentheticals", []):
+                for line in wrap(p, base_font_name, font_size, PAGE_W - LEFT_PAREN - RIGHT_PAREN):
+                    c.drawString(LEFT_PAREN, y, line)
+                    y -= line_h
+            # Dialogue body
+            dial_text = "\n".join(el.get("lines", []))
+            for line in wrap(dial_text, base_font_name, font_size, PAGE_W - LEFT_DIALOGUE - RIGHT_DIALOGUE):
+                c.drawString(LEFT_DIALOGUE, y, line)
+                y -= line_h
+            y -= line_h * 0.3
+        elif t == "transition":
+            txt = el["text"]
+            wrapped = wrap(txt, base_font_name, font_size, PAGE_W - LEFT_ACTION - RIGHT_TRANSITION)
+            ensure_space(len(wrapped)+1)
+            for line in wrapped:
+                w = string_width(line, base_font_name, font_size)
+                c.drawString(PAGE_W - RIGHT_TRANSITION - w, y, line)
+                y -= line_h
+            y -= line_h * 0.2
+
+    c.save()
+
 def convert_markdown_to_pdf(md_path: str, pdf_path: str, title: str = "", font_path: str | None = None, font_size: int = 12, break_style: str = "page", transition_right_in: float = 1.0):
     with open(md_path, "r", encoding="utf-8") as f:
         md = f.read()
@@ -759,6 +943,7 @@ def main():
     parser.add_argument("--shot-list", default=None, help="Optional path to write a shot list (CSV or Markdown)")
     parser.add_argument("--shot-list-pdf", default=None, help="Optional path to write the shot list as a PDF")
     parser.add_argument("--shot-list-landscape", action="store_true", help="Render shot list PDF in landscape orientation")
+    parser.add_argument("--vector", action="store_true", help="Render screenplay PDF with vector text (requires reportlab)")
     parser.add_argument("--entities", action="store_true", help="Include extracted characters, locations, and objects in the shot list output")
     args = parser.parse_args()
 
@@ -766,7 +951,13 @@ def main():
     if title is None:
         title = os.path.splitext(os.path.basename(args.input_md))[0].replace("_", " ").title()
 
-    elements = convert_markdown_to_pdf(args.input_md, args.output_pdf, title=title, font_path=args.font, font_size=args.size, break_style=args.break_style, transition_right_in=args.transition_right)
+    if args.vector:
+        with open(args.input_md, "r", encoding="utf-8") as f:
+            md_src = f.read()
+        elements = parse_screenplay_markdown(md_src)
+        draw_pdf_vector(elements, args.output_pdf, title=title, font_path=args.font, font_size=args.size, transition_right_in=args.transition_right)
+    else:
+        elements = convert_markdown_to_pdf(args.input_md, args.output_pdf, title=title, font_path=args.font, font_size=args.size, break_style=args.break_style, transition_right_in=args.transition_right)
     if args.shot_list:
         write_shot_list(elements, args.shot_list, include_entities=args.entities)
         print(f"Wrote shot list {args.shot_list}{' (with entities)' if args.entities else ''}")
