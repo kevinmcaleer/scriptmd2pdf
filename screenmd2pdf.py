@@ -88,8 +88,9 @@ def parse_screenplay_markdown(md_text: str) -> List[Dict[str, Any]]:
         # Skip comments
         if stripped_line.startswith("//"):
             continue
-        # Skip blockquotes/notes (any line starting with '>' or '> ')
-        if stripped_line.startswith(">"):
+        # Skip blockquotes/notes (lines starting with '>' that are NOT transitions).
+        # Keep transitions that start with '>>'.
+        if stripped_line.startswith(">") and not stripped_line.startswith(">>"):
             continue
         if stripped_line == "---":
             if buf:
@@ -212,7 +213,7 @@ def parse_screenplay_markdown(md_text: str) -> List[Dict[str, Any]]:
         sanitized.append(el)
     return sanitized
 
-def draw_pdf(elements: List[Dict[str, Any]], out_path: str, title: str = "", font_path: str = None, font_size: int = 12, break_style: str = "page"):
+def draw_pdf(elements: List[Dict[str, Any]], out_path: str, title: str = "", font_path: str = None, font_size: int = 12, break_style: str = "page", transition_right_in: float = 1.0):
     # Page setup
     PAGE_W, PAGE_H = int(8.5*72), int(11*72)  # 612x792
     MARGIN_T, MARGIN_B = int(1*72), int(1*72)
@@ -225,7 +226,7 @@ def draw_pdf(elements: List[Dict[str, Any]], out_path: str, title: str = "", fon
     RIGHT_DIALOGUE = int(2.5*72)
     RIGHT_ACTION = int(1.0*72)
     RIGHT_PAREN = int(2.5*72)
-    RIGHT_TRANSITION = int(1.0*72)
+    RIGHT_TRANSITION = int(transition_right_in*72)
 
     # Font
     font = load_font(size=font_size, override_path=font_path)
@@ -367,11 +368,11 @@ def draw_pdf(elements: List[Dict[str, Any]], out_path: str, title: str = "", fon
     pages.append(img)
     pages[0].save(out_path, save_all=True, append_images=pages[1:])
 
-def convert_markdown_to_pdf(md_path: str, pdf_path: str, title: str = "", font_path: str = None, font_size: int = 12, break_style: str = "page"):
+def convert_markdown_to_pdf(md_path: str, pdf_path: str, title: str = "", font_path: str = None, font_size: int = 12, break_style: str = "page", transition_right_in: float = 1.0):
     with open(md_path, "r", encoding="utf-8") as f:
         md = f.read()
     elements = parse_screenplay_markdown(md)
-    draw_pdf(elements, pdf_path, title=title, font_path=font_path, font_size=font_size, break_style=break_style)
+    draw_pdf(elements, pdf_path, title=title, font_path=font_path, font_size=font_size, break_style=break_style, transition_right_in=transition_right_in)
 
 def main():
     parser = argparse.ArgumentParser(description="Convert screenplay-flavored Markdown to PDF.")
@@ -381,13 +382,14 @@ def main():
     parser.add_argument("--font", default=None, help="Path to a .ttf monospace font (e.g., DejaVuSansMono.ttf)")
     parser.add_argument("--size", type=int, default=12, help="Font size in points")
     parser.add_argument("--break-style", choices=["line", "page", "space"], default="page", help="How to render --- markers (default page break)")
+    parser.add_argument("--transition-right", type=float, default=1.0, help="Right margin (in inches) for right-aligned transitions")
     args = parser.parse_args()
 
     title = args.title
     if title is None:
         title = os.path.splitext(os.path.basename(args.input_md))[0].replace("_", " ").title()
 
-    convert_markdown_to_pdf(args.input_md, args.output_pdf, title=title, font_path=args.font, font_size=args.size, break_style=args.break_style)
+    convert_markdown_to_pdf(args.input_md, args.output_pdf, title=title, font_path=args.font, font_size=args.size, break_style=args.break_style, transition_right_in=args.transition_right)
     print(f"Wrote {args.output_pdf}")
 
 if __name__ == "__main__":
