@@ -417,6 +417,56 @@ def convert_markdown_to_pdf(md_path: str, pdf_path: str, title: str = "", font_p
         md = f.read()
     elements = parse_screenplay_markdown(md)
     draw_pdf(elements, pdf_path, title=title, font_path=font_path, font_size=font_size, break_style=break_style, transition_right_in=transition_right_in)
+    return elements
+
+def write_shot_list(elements: List[Dict[str, Any]], out_path: str):
+    """Generate a shot list file (CSV or Markdown) from parsed elements.
+
+    Strategy:
+    - Each scene heading becomes a row (type=SCENE)
+    - Each explicit shot heading (! ...) becomes a row (type=SHOT)
+    - Optionally include a short action summary that immediately follows (first action block after the heading) truncated.
+    """
+    rows = []
+    current_scene = ""
+    for idx, el in enumerate(elements):
+        t = el.get("type")
+        if t == "scene":
+            current_scene = el.get("text", "").upper()
+            # Add scene as its own row
+            summary = _next_action_snippet(elements, idx)
+            rows.append({"no": len(rows)+1, "type": "SCENE", "scene": current_scene, "shot": "", "summary": summary})
+        elif t == "shot":
+            shot_text = el.get("text", "").upper()
+            summary = _next_action_snippet(elements, idx)
+            rows.append({"no": len(rows)+1, "type": "SHOT", "scene": current_scene, "shot": shot_text, "summary": summary})
+
+    # Decide format
+    if out_path.lower().endswith(".csv"):
+        import csv
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["#", "Type", "Scene", "Shot", "Summary"])
+            for r in rows:
+                writer.writerow([r["no"], r["type"], r["scene"], r["shot"], r["summary"]])
+    else:  # markdown table
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write("| # | Type | Scene | Shot | Summary |\n")
+            f.write("|---|------|-------|------|---------|\n")
+            for r in rows:
+                f.write(f"| {r['no']} | {r['type']} | {r['scene']} | {r['shot']} | {r['summary']} |\n")
+
+def _next_action_snippet(elements: List[Dict[str, Any]], start_index: int, max_len: int = 120) -> str:
+    """Find the first action element after the given index and return a short snippet."""
+    for el in elements[start_index+1:]:
+        if el.get("type") == "action":
+            txt = " ".join(el.get("text", "").split())
+            if len(txt) > max_len:
+                return txt[:max_len-1] + "…"
+            return txt
+        if el.get("type") in {"scene", "shot"}:  # stop at next heading
+            break
+    return ""
 
 def main():
     parser = argparse.ArgumentParser(description="Convert screenplay-flavored Markdown to PDF.")
@@ -427,13 +477,17 @@ def main():
     parser.add_argument("--size", type=int, default=12, help="Font size in points")
     parser.add_argument("--break-style", choices=["line", "page", "space"], default="page", help="How to render --- markers (default page break)")
     parser.add_argument("--transition-right", type=float, default=1.0, help="Right margin (in inches) for right-aligned transitions")
+    parser.add_argument("--shot-list", default=None, help="Optional path to write a shot list (CSV or Markdown)")
     args = parser.parse_args()
 
     title = args.title
     if title is None:
         title = os.path.splitext(os.path.basename(args.input_md))[0].replace("_", " ").title()
 
-    convert_markdown_to_pdf(args.input_md, args.output_pdf, title=title, font_path=args.font, font_size=args.size, break_style=args.break_style, transition_right_in=args.transition_right)
+    elements = convert_markdown_to_pdf(args.input_md, args.output_pdf, title=title, font_path=args.font, font_size=args.size, break_style=args.break_style, transition_right_in=args.transition_right)
+    if args.shot_list:
+        write_shot_list(elements, args.shot_list)
+        print(f"Wrote shot list {args.shot_list}")
     print(f"Wrote {args.output_pdf}")
 
 if __name__ == "__main__":
