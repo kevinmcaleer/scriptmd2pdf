@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# Kevin McAleer
+# 13 August 2025
+
 """
 screenmd2pdf.py (v2)
 Convert a screenplay-flavored Markdown file into a PDF in standard screenwriter style.
