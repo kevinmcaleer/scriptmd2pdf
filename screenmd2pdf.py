@@ -987,16 +987,17 @@ def render_shot_list_pdf_vector(rows: List[Dict[str, Any]], entities: Dict[str, 
         if y - req_h < margin_b:
             new_page()
 
-    # Header row
+    # Header row (draw text, then a line with consistent padding)
     ensure_space(line_h*2)
     x = margin_l
     c.setFont(bold_font, font_size)
+    header_baseline = y
     for k in col_keys:
-        c.drawString(x, y, headers[k])
+        c.drawString(x, header_baseline, headers[k])
         x += max_widths[k] + gap
-    y -= line_h * 0.8
+    y = header_baseline - line_h * 0.25  # slightly larger baseline retention
     c.line(margin_l, y, PAGE_W - margin_r, y)
-    y -= line_h * 0.3
+    y -= line_h * 0.75  # extra vertical space before first row
 
     # Rows
     c.setFont(base_font, font_size)
