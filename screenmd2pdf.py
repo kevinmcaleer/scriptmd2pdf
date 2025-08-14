@@ -859,6 +859,189 @@ def render_shot_list_pdf(rows: List[Dict[str, Any]], entities: Dict[str, Any], o
     pages.append(img)
     pages[0].save(out_path, save_all=True, append_images=pages[1:])
 
+def render_shot_list_pdf_vector(rows: List[Dict[str, Any]], entities: Dict[str, Any], out_path: str, font_path: str | None = None, font_size: int = 12, title: str = "Shot List", include_entities: bool = False, landscape: bool = False):
+    """Vector (ReportLab) version of shot list PDF. Falls back by raising ImportError if reportlab missing."""
+    from reportlab.pdfgen import canvas  # type: ignore
+    from reportlab.lib.pagesizes import letter, landscape as rl_landscape  # type: ignore
+    from reportlab.pdfbase import pdfmetrics  # type: ignore
+    from reportlab.pdfbase.ttfonts import TTFont  # type: ignore
+
+    PAGE_W, PAGE_H = (letter if not landscape else rl_landscape(letter))
+    margin_l = 36
+    margin_r = 36
+    margin_t = 54
+    margin_b = 54
+
+    base_font = "Courier"
+    bold_font = "Courier-Bold"
+    if font_path and os.path.exists(font_path):
+        try:
+            pdfmetrics.registerFont(TTFont("SLMono", font_path))
+            base_font = "SLMono"
+            # Bold attempt
+            root, ext = os.path.splitext(font_path)
+            for cand in [root.replace("Regular","Bold")+ext, root+"-Bold"+ext, root+"Bold"+ext]:
+                if os.path.exists(cand):
+                    try:
+                        pdfmetrics.registerFont(TTFont("SLMonoBold", cand))
+                        bold_font = "SLMonoBold"
+                        break
+                    except OSError:
+                        continue
+        except OSError:
+            pass
+
+    line_h = font_size * 1.25
+
+    def sw(txt: str, font_name: str = base_font, size: int = font_size) -> float:
+        try:
+            return pdfmetrics.stringWidth(txt, font_name, size)
+        except (KeyError, ValueError):
+            return len(txt) * (size * 0.6)
+
+    # Column setup (reuse logic from raster but recompute widths with stringWidth)
+    col_keys = ["no", "type", "scene", "shot", "summary"]
+    headers = {"no": "#", "type": "Type", "scene": "Scene", "shot": "Shot", "summary": "Summary"}
+    max_widths = {k: sw(headers[k], bold_font) for k in col_keys}
+    for r in rows:
+        scene_txt = str(r["scene"]).replace("\n", " ")
+        shot_txt = str(r["shot"]).replace("\n", " ")
+        summary_txt = str(r["summary"]).replace("\n", " ")
+        max_widths["no"] = max(max_widths["no"], sw(str(r["no"])) )
+        max_widths["type"] = max(max_widths["type"], sw(r["type"]))
+        max_widths["scene"] = max(max_widths["scene"], sw(scene_txt))
+        max_widths["shot"] = max(max_widths["shot"], sw(shot_txt))
+        max_widths["summary"] = max(max_widths["summary"], sw(summary_txt))
+
+    cap_scene = PAGE_W * (0.18 if not landscape else 0.25)
+    cap_shot = PAGE_W * (0.14 if not landscape else 0.20)
+    cap_summary = PAGE_W * (0.38 if not landscape else 0.50)
+    max_widths["scene"] = min(max_widths["scene"], cap_scene)
+    max_widths["shot"] = min(max_widths["shot"], cap_shot)
+    max_widths["summary"] = min(max_widths["summary"], cap_summary)
+
+    gap = 14
+    table_width = sum(max_widths[k] for k in col_keys) + gap*(len(col_keys)-1)
+    content_width = PAGE_W - margin_l - margin_r
+    if table_width > content_width:
+        scale = content_width / table_width
+        for k in max_widths:
+            max_widths[k] *= scale
+
+    def wrap_cell(text: str, width: float) -> List[str]:
+        if not text:
+            return [""]
+        words = text.split()
+        lines: List[str] = []
+        cur = ""
+        for w in words:
+            test = w if not cur else cur+" "+w
+            if sw(test) <= width:
+                cur = test
+            else:
+                if cur:
+                    lines.append(cur)
+                if sw(w) > width:
+                    chunk = ""
+                    for ch in w:
+                        t2 = chunk+ch
+                        if sw(t2) <= width:
+                            chunk = t2
+                        else:
+                            if chunk:
+                                lines.append(chunk)
+                            chunk = ch
+                    if chunk:
+                        cur = chunk
+                    else:
+                        cur = ""
+                else:
+                    cur = w
+        if cur:
+            lines.append(cur)
+        return lines or [""]
+
+    c = canvas.Canvas(out_path, pagesize=(PAGE_W, PAGE_H))
+
+    def draw_header(page_title: str, y_top: float) -> float:
+        if page_title:
+            c.setFont(base_font, font_size)
+            title_w = sw(page_title)
+            c.drawString((PAGE_W - title_w)/2, y_top, page_title)
+            return y_top - line_h
+        return y_top
+
+    y = PAGE_H - margin_t
+    y = draw_header(title, y)
+    y -= line_h * 0.3
+
+    def new_page():
+        nonlocal y
+        c.showPage()
+        y = PAGE_H - margin_t
+        y = draw_header(title, y)
+        y -= line_h * 0.3
+
+    def ensure_space(req_h: float):
+        nonlocal y
+        if y - req_h < margin_b:
+            new_page()
+
+    # Header row
+    ensure_space(line_h*2)
+    x = margin_l
+    c.setFont(bold_font, font_size)
+    for k in col_keys:
+        c.drawString(x, y, headers[k])
+        x += max_widths[k] + gap
+    y -= line_h * 0.8
+    c.line(margin_l, y, PAGE_W - margin_r, y)
+    y -= line_h * 0.3
+
+    # Rows
+    c.setFont(base_font, font_size)
+    for r in rows:
+        cells_wrapped = {k: wrap_cell(str(r[k]), max_widths[k]) for k in col_keys}
+        row_lines = max(len(v) for v in cells_wrapped.values())
+        req_h = row_lines * line_h + line_h*0.2
+        ensure_space(req_h)
+        for i_line in range(row_lines):
+            x = margin_l
+            for k in col_keys:
+                txt_line = cells_wrapped[k][i_line] if i_line < len(cells_wrapped[k]) else ""
+                c.drawString(x, y, txt_line)
+                x += max_widths[k] + gap
+            y -= line_h
+        y -= line_h*0.2
+
+    # Entities
+    if include_entities and entities:
+        for cat, title_cat in (("characters","Characters"),("locations","Locations"),("objects","Objects / Props")):
+            items = entities.get(cat, {})
+            if not items:
+                continue
+            ensure_space(line_h*4)
+            c.setFont(bold_font, font_size)
+            c.drawString(margin_l, y, title_cat)
+            y -= line_h
+            c.setFont(bold_font, font_size-1)
+            c.drawString(margin_l, y, "Name")
+            c.drawString(margin_l+260, y, "Count")
+            c.drawString(margin_l+320, y, "First")
+            y -= line_h*0.8
+            c.line(margin_l, y, PAGE_W - margin_r, y)
+            y -= line_h*0.2
+            c.setFont(base_font, font_size-1)
+            for name, meta in sorted(items.items(), key=lambda kv: (-kv[1]['count'], kv[1]['first_index'])):
+                ensure_space(line_h)
+                c.drawString(margin_l, y, name)
+                c.drawString(margin_l+260, y, str(meta['count']))
+                c.drawString(margin_l+320, y, str(meta['first_index']))
+                y -= line_h
+            y -= line_h*0.3
+
+    c.save()
+
 def extract_entities(elements: List[Dict[str, Any]]) -> Dict[str, Dict[str, Dict[str, int]]]:
     """Heuristically extract characters, locations, and objects/props from parsed elements.
 
@@ -941,9 +1124,11 @@ def main():
     parser.add_argument("--break-style", choices=["line", "page", "space"], default="page", help="How to render --- markers (default page break)")
     parser.add_argument("--transition-right", type=float, default=1.0, help="Right margin (in inches) for right-aligned transitions")
     parser.add_argument("--shot-list", default=None, help="Optional path to write a shot list (CSV or Markdown)")
-    parser.add_argument("--shot-list-pdf", default=None, help="Optional path to write the shot list as a PDF")
+    parser.add_argument("--shot-list-pdf", default=None, help="Optional path to write the shot list as a PDF (vector by default)")
     parser.add_argument("--shot-list-landscape", action="store_true", help="Render shot list PDF in landscape orientation")
-    parser.add_argument("--vector", action="store_true", help="Render screenplay PDF with vector text (requires reportlab)")
+    parser.add_argument("--vector", action="store_true", help="(Deprecated) Force vector screenplay PDF; now the default when ReportLab installed")
+    parser.add_argument("--raster", action="store_true", help="Force legacy raster (image) screenplay PDF output")
+    parser.add_argument("--shot-list-raster", action="store_true", help="Force raster shot list PDF (fallback)")
     parser.add_argument("--entities", action="store_true", help="Include extracted characters, locations, and objects in the shot list output")
     args = parser.parse_args()
 
@@ -951,21 +1136,39 @@ def main():
     if title is None:
         title = os.path.splitext(os.path.basename(args.input_md))[0].replace("_", " ").title()
 
+    # Determine screenplay rendering mode (vector default if available, unless --raster forces image)
+    use_vector = not args.raster  # default vector
     if args.vector:
-        with open(args.input_md, "r", encoding="utf-8") as f:
-            md_src = f.read()
-        elements = parse_screenplay_markdown(md_src)
-        draw_pdf_vector(elements, args.output_pdf, title=title, font_path=args.font, font_size=args.size, transition_right_in=args.transition_right)
-    else:
+        use_vector = True
+    try:
+        if use_vector:
+            with open(args.input_md, "r", encoding="utf-8") as f:
+                md_src = f.read()
+            elements = parse_screenplay_markdown(md_src)
+            draw_pdf_vector(elements, args.output_pdf, title=title, font_path=args.font, font_size=args.size, transition_right_in=args.transition_right)
+        else:
+            elements = convert_markdown_to_pdf(args.input_md, args.output_pdf, title=title, font_path=args.font, font_size=args.size, break_style=args.break_style, transition_right_in=args.transition_right)
+    except SystemExit:  # ReportLab missing
+        # Fallback to raster if vector requested but lib unavailable
         elements = convert_markdown_to_pdf(args.input_md, args.output_pdf, title=title, font_path=args.font, font_size=args.size, break_style=args.break_style, transition_right_in=args.transition_right)
+        print("ReportLab not available, fell back to raster rendering.")
     if args.shot_list:
         write_shot_list(elements, args.shot_list, include_entities=args.entities)
         print(f"Wrote shot list {args.shot_list}{' (with entities)' if args.entities else ''}")
     if args.shot_list_pdf:
         rows, ents = build_shot_list(elements, include_entities=args.entities)
-        render_shot_list_pdf(rows, ents, args.shot_list_pdf, font_path=args.font, font_size=args.size, title=f"{title} - Shot List", include_entities=args.entities, landscape=args.shot_list_landscape)
+        if not args.shot_list_raster:
+            try:
+                render_shot_list_pdf_vector(rows, ents, args.shot_list_pdf, font_path=args.font, font_size=args.size, title=f"{title} - Shot List", include_entities=args.entities, landscape=args.shot_list_landscape)
+                mode = "vector"
+            except (RuntimeError, OSError):
+                render_shot_list_pdf(rows, ents, args.shot_list_pdf, font_path=args.font, font_size=args.size, title=f"{title} - Shot List", include_entities=args.entities, landscape=args.shot_list_landscape)
+                mode = "raster (fallback)"
+        else:
+            render_shot_list_pdf(rows, ents, args.shot_list_pdf, font_path=args.font, font_size=args.size, title=f"{title} - Shot List", include_entities=args.entities, landscape=args.shot_list_landscape)
+            mode = "raster"
         orient = " landscape" if args.shot_list_landscape else ""
-        print(f"Wrote shot list PDF{orient} {args.shot_list_pdf}{' (with entities)' if args.entities else ''}")
+        print(f"Wrote shot list PDF{orient} ({mode}) {args.shot_list_pdf}{' (with entities)' if args.entities else ''}")
     print(f"Wrote {args.output_pdf}")
 
 if __name__ == "__main__":
