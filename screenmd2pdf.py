@@ -845,9 +845,9 @@ def render_shot_list_pdf(rows: List[Dict[str, Any]], entities: Dict[str, Any], o
             x_positions = [MARGIN_L, MARGIN_L + colw[0] + 12, MARGIN_L + colw[0] + 12 + colw[1] + 12]
             for i, htxt in enumerate(hdrs):
                 dr.text((x_positions[i], y), htxt, font=bold_font, fill="black")
-            y += line_h
+            y += line_h + 4
             dr.line((MARGIN_L, y, PAGE_W - MARGIN_R, y), fill="black")
-            y += int(line_h * 0.3)  # Adequate space after underline
+            y += 6
             for name, meta in sorted(items.items(), key=lambda kv: (-kv[1]['count'], kv[1]['first_index'])):
                 ensure_space(line_h)
                 dr.text((x_positions[0], y), name, font=font, fill="black")
