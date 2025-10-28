@@ -21,6 +21,7 @@ Convert a screenplay‑flavoured Markdown file into a properly formatted PDF (mo
 * Entity inventory (characters, locations, objects) appended to shot list outputs (`--entities`)
 * Landscape shot list PDF option for wider columns (`--shot-list-landscape`)
 * Razor‑sharp vector screenplay PDF rendering (`--vector` via ReportLab) instead of raster images
+* Final Cut Pro timeline export (FCPXML) with scene markers & shot keyword ranges (`--fcpxml`)
 
 ## Installation
 
@@ -54,6 +55,9 @@ python screenmd2pdf.py INPUT.md OUTPUT.pdf [options]
 | `--shot-list-landscape` | off | Use landscape orientation for shot list PDF (more horizontal room, less wrapping). |
 | `--entities` | off | Include entity inventory (characters, locations, objects) in shot list (text/CSV/PDF). |
 | `--vector` | off | Use vector text PDF rendering (requires `reportlab`) for crisp non-blurry output. |
+| `--fcpxml script.fcpxml` | (none) | Export a minimal Final Cut Pro XML with scene markers & shot keyword ranges. |
+| `--wpm 160` | 160 | Words per minute reading rate to estimate timing for FCPXML. |
+| `--fps 25` | 25 | Frame rate used for FCPXML timecode (24/25/30 etc). |
 
 ### Example
 
@@ -110,6 +114,38 @@ If no descriptive action follows a heading, the summary cell is left blank.
 ### Including Entities in Markdown / CSV
 
 Pass `--entities` with `--shot-list` to append an "Entity Inventory" section (Markdown) or extra rows (CSV) after the table.
+
+## Final Cut Pro (FCPXML) Export
+
+Generate a lightweight FCPXML you can import into Final Cut Pro to bootstrap your edit with chapter markers for scenes and searchable keyword ranges for shots.
+
+```bash
+python screenmd2pdf.py example_screenplay.md script.pdf --fcpxml script.fcpxml
+```
+
+What you get:
+
+* Each scene heading becomes a marker at its estimated start time (uses cumulative estimated durations of preceding blocks).
+* Each shot heading (`! ...`) becomes a keyword range labeled `SHOT:HEADING` spanning its estimated duration.
+* Durations are heuristically estimated from word counts at a configurable words-per-minute rate (`--wpm`, default 160). Minimum 1s per text block.
+* Timecode is expressed at the chosen frame rate (`--fps`, default 25) for compatibility with your project settings.
+
+Usage with custom pacing & frame rate:
+
+```bash
+python screenmd2pdf.py example_screenplay.md script.pdf --fcpxml script.fcpxml --wpm 180 --fps 24
+```
+
+Importing:
+
+1. In Final Cut Pro choose File > Import > XML… and select the generated `.fcpxml`.
+2. A new Event containing a Project named after the script title appears; markers & keyword ranges are visible in the timeline / index.
+
+Notes / Limitations:
+
+* The export represents the entire script as a single gap clip with markers/keywords (no media). Replace sections with actual footage as you assemble.
+* Timing is approximate; adjust by moving markers once you have real durations.
+* Only scene and shot headings are exported; dialogue/action aren’t broken into ranges (could be extended in future).
 
 ## Markdown Syntax Reference
 

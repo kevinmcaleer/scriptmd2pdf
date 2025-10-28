@@ -1,0 +1,19 @@
+- simplicity over complexity
+- clarity over cleverness
+- maintainability over optimization
+- self-documenting code over comments
+- small functions over large functions
+- functions with single responsibility over multi-purpose functions
+- sql should be stored in .sql files over inline sql
+- new functions should have tests over no tests
+- code coverage should be at least 80%
+- progress is updated on github issues on the https://github.com/kevinmcaleer/scriptmd2pdf repository over no updates
+- commit messages should follow the conventional commits specification over freeform messages
+- database changes should be documented in the design/database.dbml file over no documentation
+- database changes should be managed using migrations over manual changes
+- ensure the database.dbml is always updated with any schema changes over neglecting it
+- document how new features work in design/epic.md over no documentation (and update this for existing features too)
+- ensure deployment_tasks is updated with any new deployment steps over neglecting it
+- always update requirements.txt when new packages are added over neglecting it
+- the local docker repository should be used for building images over docker hub - the prefered name is 192.168.2.1:5000/md2script:latest over other names
+- never expose the username and password in the repository over exposing them

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  scriptmd2pdf:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: 192.168.2.1:5000/md2script:latest
+    container_name: scriptmd2pdf
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - MAX_FILE_SIZE=1048576
+      - RATE_LIMIT=5/minute
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - scriptmd2pdf-network
+    # Resource limits for Raspberry Pi
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+networks:
+  scriptmd2pdf-network:
+    driver: bridge

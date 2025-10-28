@@ -1,0 +1,72 @@
+<fcpxml version="1.10">
+  <resources>
+    <format id="r1" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+    <effect id="rTitle" name="Basic Title" uid="/Titles.localized/Basic Title.localized/Basic Title.moti" />
+  </resources>
+  <library>
+    <event name="Example Screenplay">
+      <project name="Example Screenplay">
+        <sequence duration="1116/25s" format="r1" tcStart="0s" tcFormat="NDF">
+          <spine>
+            <gap name="Example Screenplay (Markdown)" offset="0/25s" start="0s" duration="28/25s">
+              <title name="Example Screenplay (Markdown)" ref="rTitle" offset="0s" start="0s" duration="25/25s" lane="1">
+                <text>
+                  <text-style ref="ts0">Example Screenplay (Markdown)</text-style>
+                </text>
+                <text-style-def id="ts0">
+                  <text-style font="Helvetica" fontSize="80" />
+                </text-style-def>
+              </title>
+              <marker start="0s" duration="0s" value="🟥 Example Screenplay (Markdown)" completed="0" />
+            </gap>
+            <gap name="INT. KITCHEN - DAY" offset="28/25s" start="0s" duration="412/25s">
+              <title name="INT. KITCHEN - DAY" ref="rTitle" offset="0s" start="0s" duration="25/25s" lane="1">
+                <text>
+                  <text-style ref="ts1">INT. KITCHEN - DAY</text-style>
+                </text>
+                <text-style-def id="ts1">
+                  <text-style font="Helvetica" fontSize="80" />
+                </text-style-def>
+              </title>
+              <marker start="0s" duration="0s" value="🟧 INT. KITCHEN - DAY" completed="0" />
+              <keyword start="338/25s" duration="75/25s" value="SHOT:CLOSE ON&#10;THE KETTLE SWITCH. IT CLICKS OFF." />
+            </gap>
+            <gap name="EXT. CITY STREET - LATER" offset="441/25s" start="0s" duration="258/25s">
+              <title name="EXT. CITY STREET - LATER" ref="rTitle" offset="0s" start="0s" duration="25/25s" lane="1">
+                <text>
+                  <text-style ref="ts2">EXT. CITY STREET - LATER</text-style>
+                </text>
+                <text-style-def id="ts2">
+                  <text-style font="Helvetica" fontSize="80" />
+                </text-style-def>
+              </title>
+              <marker start="0s" duration="0s" value="🟨 EXT. CITY STREET - LATER" completed="0" />
+            </gap>
+            <gap name="INT. GARAGE - NIGHT" offset="699/25s" start="0s" duration="258/25s">
+              <title name="INT. GARAGE - NIGHT" ref="rTitle" offset="0s" start="0s" duration="25/25s" lane="1">
+                <text>
+                  <text-style ref="ts3">INT. GARAGE - NIGHT</text-style>
+                </text>
+                <text-style-def id="ts3">
+                  <text-style font="Helvetica" fontSize="80" />
+                </text-style-def>
+              </title>
+              <marker start="0s" duration="0s" value="🟩 INT. GARAGE - NIGHT" completed="0" />
+            </gap>
+            <gap name="INT. GARAGE OFFICE - MOMENTS LATER" offset="957/25s" start="0s" duration="159/25s">
+              <title name="INT. GARAGE OFFICE - MOMENTS LATER" ref="rTitle" offset="0s" start="0s" duration="25/25s" lane="1">
+                <text>
+                  <text-style ref="ts4">INT. GARAGE OFFICE - MOMENTS LATER</text-style>
+                </text>
+                <text-style-def id="ts4">
+                  <text-style font="Helvetica" fontSize="80" />
+                </text-style-def>
+              </title>
+              <marker start="0s" duration="0s" value="🟦 INT. GARAGE OFFICE - MOMENTS LATER" completed="0" />
+            </gap>
+          </spine>
+        </sequence>
+      </project>
+    </event>
+  </library>
+</fcpxml>

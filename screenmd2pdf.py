@@ -1115,6 +1115,131 @@ def _next_action_snippet(elements: List[Dict[str, Any]], start_index: int, max_l
             break
     return ""
 
+def write_fcpxml(elements: List[Dict[str, Any]], out_path: str, title: str, wpm: int = 160, fps: int = 25, include_titles: bool = False, title_seconds: float = 2.0, title_uid: str | None = None):
+    """Export a minimal FCPXML (Final Cut Pro) document with:
+
+    - Each scene heading as a chapter marker (blue) at its estimated start time.
+    - Each shot heading as a keyword range (keyword: SHOT:<text>) spanning its estimated duration.
+
+    Timing Heuristic:
+    We estimate per-element duration based on word counts in action + dialogue blocks.
+    Words per minute (wpm) -> words per second (wps). Each block gets duration = max(min_dur, words / wps).
+    Scene/shot markers placed at cumulative time of first element belonging to that section.
+
+    FCPXML Version: 1.10 (sufficient for markers & keyword ranges).
+    """
+    import xml.etree.ElementTree as ET
+    # Compute word counts for timing
+    wps = max(wpm / 60.0, 1e-6)
+    min_block = 1.0  # seconds minimal duration for any textual block
+
+    # Build a flattened list of timed segments
+    segments = []  # (index, type, text, duration_seconds)
+    for idx, el in enumerate(elements):
+        t = el.get("type")
+        if t == "action":
+            words = len(el.get("text", "").split())
+        elif t == "dialogue":
+            words = len(" ".join(el.get("lines", [])).split()) + len(el.get("character"," ").split())
+        elif t in {"scene", "shot"}:
+            # scene & shot headings negligible duration but keep a token time slice
+            words = max(len(el.get("text"," ").split()), 1)
+        else:
+            words = 0
+        dur = max(words / wps, min_block if words>0 else 0.2)
+        segments.append((idx, t, el, dur))
+
+    # Total duration and mapping index->start time
+    start_times = {}
+    cursor = 0.0
+    for idx, t, el, dur in segments:
+        start_times[idx] = cursor
+        cursor += dur
+    total_seconds = cursor
+
+    def sec_to_rational(seconds: float) -> str:
+        """Return FCPXML rational time value with 's' suffix (e.g. '954/24s')."""
+        frames = int(round(seconds * fps))
+        return f"{frames}/{fps}s"
+
+    # Build scene list with start/end times
+    scenes = []  # {name,start,end}
+    for idx, t, el, dur in segments:
+        if t == "scene":
+            scenes.append({
+                "name": el.get("text", ""),
+                "start": start_times[idx],
+                "end": None  # fill later
+            })
+    for i, sc in enumerate(scenes):
+        if i < len(scenes)-1:
+            sc["end"] = scenes[i+1]["start"]
+        else:
+            sc["end"] = total_seconds
+
+    # Gather shots for keyword ranges (assign later inside scene gaps)
+    shots = []  # (start_sec,dur_sec,name)
+    for idx, t, el, dur in segments:
+        if t == "shot":
+            shots.append((start_times[idx], dur, el.get("text", "").upper()))
+
+    # Minimal FCPXML structure
+    fcpxml = ET.Element("fcpxml", version="1.10")
+    resources = ET.SubElement(fcpxml, "resources")
+    format_id = "r1"
+    ET.SubElement(resources, "format", id=format_id, frameDuration=f"1/{fps}s", width="1920", height="1080", colorSpace="1-1-1 (Rec. 709)")
+    effect_id = "rTitle" if include_titles else ""
+    if include_titles:
+        # Provide a uid; FCPXML DTD requires uid attribute on effect resources.
+        # Default corresponds to the built-in Basic Title. Allow override via CLI.
+        resolved_uid = title_uid or "/Titles.localized/Basic Title.localized/Basic Title.moti"
+        ET.SubElement(resources, "effect", id=effect_id, name="Basic Title", uid=resolved_uid)
+    library = ET.SubElement(fcpxml, "library")
+    event = ET.SubElement(library, "event", name=title)
+    # Represent script as a single gap clip with duration
+    timeline = ET.SubElement(event, "project", name=title)
+    sequence = ET.SubElement(timeline, "sequence", duration=sec_to_rational(total_seconds), format=format_id, tcStart="0s", tcFormat="NDF")
+    spine = ET.SubElement(sequence, "spine")
+    # Color cycle for scene markers (visual differentiation via emoji prefix)
+    color_emojis = ["🟥", "🟧", "🟨", "🟩", "🟦", "🟪"]
+
+    for i, sc in enumerate(scenes):
+        sc_start = sc["start"]
+        sc_end = sc["end"] or sc_start
+        sc_dur = max(sc_end - sc_start, 0.1)
+        gap = ET.SubElement(spine, "gap", name=sc["name"], offset=sec_to_rational(sc_start), start="0s", duration=sec_to_rational(sc_dur))
+        # Optional title first (media elements precede markers per DTD ordering)
+        if include_titles and effect_id:
+            frames_title = max(1, int(round(min(title_seconds, sc_dur) * fps)))
+            dur_title = f"{frames_title}/{fps}s"
+            title_el = ET.SubElement(gap, "title", name=sc["name"], ref=effect_id, offset="0s", start="0s", duration=dur_title, lane="1")
+            text_container = ET.SubElement(title_el, "text")
+            style_id = f"ts{i}"
+            text_style_run = ET.SubElement(text_container, "text-style", attrib={"ref": style_id})
+            text_style_run.text = sc["name"]
+            style_def = ET.SubElement(title_el, "text-style-def", id=style_id)
+            ET.SubElement(style_def, "text-style", font="Helvetica", fontSize="80")
+        # Scene marker(s) follow media
+        marker_label = f"{color_emojis[i % len(color_emojis)]} {sc['name']}"
+        ET.SubElement(gap, "marker", start="0s", duration="0s", value=marker_label[:255], completed="0")
+        # Shots within this scene range (keywords after markers allowed, but maintain ordering)
+        for shot_start, shot_dur, shot_name in shots:
+            if sc_start <= shot_start < sc_end:
+                rel_start = max(0.0, shot_start - sc_start)
+                ET.SubElement(gap, "keyword", start=sec_to_rational(rel_start), duration=sec_to_rational(shot_dur), value=f"SHOT:{shot_name}"[:255])
+
+    # Write XML
+    tree = ET.ElementTree(fcpxml)
+    ET.indent(tree, space="  ", level=0)  # Python 3.9+
+    with open(out_path, "w", encoding="utf-8") as f:
+        tree.write(f, encoding="unicode")
+
+    return {
+        "total_seconds": total_seconds,
+    "scene_markers": len(scenes),
+    "shot_keywords": len(shots)
+    }
+
 def main():
     parser = argparse.ArgumentParser(description="Convert screenplay-flavored Markdown to PDF.")
     parser.add_argument("input_md")
@@ -1131,6 +1256,14 @@ def main():
     parser.add_argument("--raster", action="store_true", help="Force legacy raster (image) screenplay PDF output")
     parser.add_argument("--shot-list-raster", action="store_true", help="Force raster shot list PDF (fallback)")
     parser.add_argument("--entities", action="store_true", help="Include extracted characters, locations, and objects in the shot list output")
+    parser.add_argument("--fcpxml", default=None, help="Optional path to write a Final Cut Pro FCPXML with scene markers & shot keyword ranges")
+    parser.add_argument("--wpm", type=int, default=160, help="Estimated words per minute for timing estimates in FCPXML export")
+    parser.add_argument("--fps", type=int, default=25, help="Frame rate for FCPXML timecode (e.g. 24, 25, 30)")
+    parser.add_argument("--fcpxml-titles", action="store_true", help="Include a title clip at the start of each scene in FCPXML")
+    parser.add_argument("--fcpxml-title-duration", type=float, default=2.0, help="Duration (seconds) of each generated title clip (capped by scene length)")
+    parser.add_argument("--fcpxml-title-uid", default=None, help="Override the effect uid for title clips (advanced; defaults to built-in Basic Title uid)")
+    parser.add_argument("--fcpxml-title-ref", default=None, help="Path to an existing FCPXML to auto-detect a title effect uid from its <resources>")
+    parser.add_argument("--fcpxml-title-auto", action="store_true", help="Attempt automatic common UID list if no explicit or reference UID provided")
     args = parser.parse_args()
 
     title = args.title
@@ -1170,6 +1303,61 @@ def main():
             mode = "raster"
         orient = " landscape" if args.shot_list_landscape else ""
         print(f"Wrote shot list PDF{orient} ({mode}) {args.shot_list_pdf}{' (with entities)' if args.entities else ''}")
+    if args.fcpxml:
+        try:
+            # Resolve title UID (priority: explicit > ref file > auto list > default basic UID)
+            resolved_uid = args.fcpxml_title_uid
+            if not resolved_uid and args.fcpxml_title_ref:
+                def _detect_uid_from_xml(path: str) -> str | None:
+                    import xml.etree.ElementTree as ET
+                    try:
+                        tree = ET.parse(path)
+                    except (OSError, ET.ParseError):
+                        return None
+                    root = tree.getroot()
+                    # Accept typical names in order
+                    preferred = ["Basic Title", "Basic", "Build In/Out", "Build In:Out"]
+                    effects = root.findall('.//resources/effect')
+                    chosen_uid = None
+                    for name in preferred:
+                        for eff in effects:
+                            if eff.get('name') == name and eff.get('uid'):
+                                return eff.get('uid')
+                    # fallback first effect with uid
+                    for eff in effects:
+                        if eff.get('uid'):
+                            chosen_uid = eff.get('uid')
+                            break
+                    return chosen_uid
+                resolved_uid = _detect_uid_from_xml(args.fcpxml_title_ref)
+                if resolved_uid:
+                    print(f"Detected title uid from reference: {resolved_uid}")
+                else:
+                    print("Could not detect title uid from reference file.")
+            if not resolved_uid and args.fcpxml_title_auto:
+                # Common built-in candidates (will still need to exist on system)
+                common_uids = [
+                    "/Titles.localized/Basic Title.localized/Basic Title.moti",
+                    "/Titles.localized/Build In:Out.localized/Build In:Out.moti",
+                    "/Titles.localized/Build In-Out.localized/Build In-Out.moti",
+                    "/Titles.localized/Basic.localized/Basic.moti",
+                ]
+                resolved_uid = common_uids[0]
+                print(f"Auto-selected title uid candidate: {resolved_uid}")
+            write_fcpxml(
+                elements,
+                args.fcpxml,
+                title=title,
+                wpm=args.wpm,
+                fps=args.fps,
+                include_titles=args.fcpxml_titles,
+                title_seconds=args.fcpxml_title_duration,
+                title_uid=resolved_uid,
+            )
+            extra = " + titles" if args.fcpxml_titles else ""
+            print(f"Wrote FCPXML {args.fcpxml} (markers & keyword ranges{extra}, {args.fps}fps, {args.wpm}wpm)")
+        except (OSError, ValueError) as exc:
+            print(f"Failed to write FCPXML: {exc}")
     print(f"Wrote {args.output_pdf}")
 
 if __name__ == "__main__":
