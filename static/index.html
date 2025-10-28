@@ -261,6 +261,71 @@
         .hidden {
             display: none;
         }
+
+        .banner {
+            width: 100%;
+            max-height: 200px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f8f9fa;
+        }
+
+        .banner img {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            border-top: 2px solid #e0e0e0;
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.8;
+        }
+
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        .footer-privacy {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            color: #856404;
+        }
+
+        .footer-links {
+            margin-top: 10px;
+        }
+
+        .example-download {
+            display: inline-block;
+            margin: 10px 0;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: transform 0.2s;
+        }
+
+        .example-download:hover {
+            transform: translateY(-2px);
+            background: #764ba2;
+        }
     </style>
 </head>
 <body>
@@ -269,7 +334,9 @@
             <h1>ScriptMD2PDF</h1>
             <p class="subtitle">Convert Markdown to Professional Screenplay PDFs</p>
         </header>
-
+        <div class="banner">
+            <img src="/static/banner.jpg" alt="ScriptMD2PDF Banner">
+        </div>
         <div class="content">
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('upload')">Upload File</button>
@@ -427,6 +494,11 @@ One more coffee, please.
                     </ul>
 
                     <h3>Example Screenplay</h3>
+                    <p style="text-align: center;">
+                        <a href="/static/example_screenplay.md" download class="example-download">
+                            📥 Download Example Screenplay
+                        </a>
+                    </p>
                     <pre style="background: #e9ecef; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>### INT. COFFEE SHOP - DAY
 
 The morning rush is in full swing.
@@ -453,6 +525,37 @@ Alex works at the laptop.</code></pre>
             </div>
         </div>
     </div>
+
+    <footer>
+        <div class="footer-privacy">
+            <strong>⚠️ Privacy Notice</strong><br>
+            No data is saved or retained by this web application. All processing happens in-memory and files are immediately deleted after conversion.
+            This service is provided for free and at your own risk. No warranty or guarantee is provided.
+        </div>
+
+        <div class="footer-credits">
+            <strong>ScriptMD2PDF</strong> - Free & Open Source Screenplay Converter<br>
+            Written by <a href="https://www.kevsrobots.com" target="_blank" rel="noopener">Kevin McAleer</a>
+        </div>
+
+        <div class="footer-links">
+            <a href="https://github.com/kevinmcaleer/scriptmd2pdf" target="_blank" rel="noopener">
+                📦 View Source Code on GitHub
+            </a>
+            |
+            <a href="https://github.com/kevinmcaleer/scriptmd2pdf/issues" target="_blank" rel="noopener">
+                🐛 Report Issues
+            </a>
+            |
+            <a href="https://www.kevsrobots.com" target="_blank" rel="noopener">
+                🤖 More Projects
+            </a>
+        </div>
+
+        <div style="margin-top: 15px; font-size: 0.85em; color: #999;">
+            &copy; 2025 Kevin McAleer | MIT License
+        </div>
+    </footer>
 
     <script>
         let selectedFile = null;
