@@ -37,6 +37,7 @@ COPY --from=builder /root/.local /home/scriptmd2pdf/.local
 # Copy application code
 COPY --chown=scriptmd2pdf:scriptmd2pdf screenmd2pdf.py .
 COPY --chown=scriptmd2pdf:scriptmd2pdf app.py .
+COPY --chown=scriptmd2pdf:scriptmd2pdf static ./static
 
 # Switch to non-root user
 USER scriptmd2pdf

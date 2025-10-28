@@ -24,13 +24,26 @@ This document summarizes the complete deployment setup for the ScriptMD2PDF proj
 ### 2. Application Code
 
 - **app.py** - FastAPI web application featuring:
-  - Beautiful web UI with drag-and-drop file upload
   - RESTful API endpoints (/convert, /convert-text, /health)
+  - Serves static HTML interface from static/index.html
   - Rate limiting (5 requests/minute per IP)
   - File validation (1MB limit, .md/.txt only)
   - In-memory processing (no file persistence)
   - CORS support
   - Comprehensive error handling
+
+- **static/index.html** - Beautiful web interface featuring:
+  - Drag-and-drop file upload
+  - Live text editor mode
+  - Syntax guide tab
+  - Additional export options:
+    * Shot list generation (CSV)
+    * Shot list PDF with table layout
+    * Entity inventory (characters, locations, props)
+    * FCPXML for Final Cut Pro
+  - Responsive design
+  - Real-time feedback
+  - Clean, modern UI
 
 ### 3. Testing
 
@@ -181,6 +194,8 @@ scriptmd2pdf/
 ├── .dockerignore             # Build optimization
 ├── test_screenmd2pdf.py      # Unit tests
 ├── test_app.py               # API tests
+├── static/
+│   └── index.html            # Web interface (HTML/CSS/JS)
 ├── .github/
 │   └── workflows/
 │       └── ci-cd.yml         # CI/CD pipeline
