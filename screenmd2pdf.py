@@ -993,9 +993,7 @@ def render_shot_list_pdf_vector(rows: List[Dict[str, Any]], entities: Dict[str, 
     for k in col_keys:
         c.drawString(x, header_baseline, headers[k])
         x += max_widths[k] + gap
-    y = header_baseline - line_h * 0.25  # slightly larger baseline retention
-    c.line(margin_l, y, PAGE_W - margin_r, y)
-    y -= line_h * 0.75  # extra vertical space before first row
+    y = header_baseline - line_h * 1.2  # spacing after header (no underline)
 
     # Rows
     c.setFont(base_font, font_size)
@@ -1015,6 +1013,12 @@ def render_shot_list_pdf_vector(rows: List[Dict[str, Any]], entities: Dict[str, 
 
     # Entities
     if include_entities and entities:
+        # Add spacing before Entity Inventory section
+        y -= line_h * 1.5
+        ensure_space(line_h*4)
+        c.setFont(bold_font, font_size)
+        c.drawString(margin_l, y, "Entity Inventory")
+        y -= line_h * 1.5
         for cat, title_cat in (("characters","Characters"),("locations","Locations"),("objects","Objects / Props")):
             items = entities.get(cat, {})
             if not items:
@@ -1022,14 +1026,12 @@ def render_shot_list_pdf_vector(rows: List[Dict[str, Any]], entities: Dict[str, 
             ensure_space(line_h*4)
             c.setFont(bold_font, font_size)
             c.drawString(margin_l, y, title_cat)
-            y -= line_h
+            y -= line_h * 1.2
             c.setFont(bold_font, font_size-1)
             c.drawString(margin_l, y, "Name")
             c.drawString(margin_l+260, y, "Count")
             c.drawString(margin_l+320, y, "First")
-            y -= line_h*0.8
-            c.line(margin_l, y, PAGE_W - margin_r, y)
-            y -= line_h*0.2
+            y -= line_h * 1.2
             c.setFont(base_font, font_size-1)
             for name, meta in sorted(items.items(), key=lambda kv: (-kv[1]['count'], kv[1]['first_index'])):
                 ensure_space(line_h)
@@ -1037,7 +1039,7 @@ def render_shot_list_pdf_vector(rows: List[Dict[str, Any]], entities: Dict[str, 
                 c.drawString(margin_l+260, y, str(meta['count']))
                 c.drawString(margin_l+320, y, str(meta['first_index']))
                 y -= line_h
-            y -= line_h*0.3
+            y -= line_h * 1.2
 
     c.save()
 
