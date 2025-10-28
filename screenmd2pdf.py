@@ -805,7 +805,7 @@ def render_shot_list_pdf(rows: List[Dict[str, Any]], entities: Dict[str, Any], o
     for k in col_keys:
         dr.text((x, y), headers[k], font=bold_font, fill="black")
         x += max_widths[k] + gap
-    y += header_h + 4
+    y += line_h + 2
     # Divider line
     dr.line((MARGIN_L, y, PAGE_W - MARGIN_R, y), fill="black")
     y += 6
@@ -828,6 +828,10 @@ def render_shot_list_pdf(rows: List[Dict[str, Any]], entities: Dict[str, Any], o
 
     # Entities inventory (optionally) each category with subheading
     if include_entities and entities:
+        # Add separator line before Entity Inventory section
+        y += 10
+        dr.line((MARGIN_L, y, PAGE_W - MARGIN_R, y), fill="black", width=2)
+        y += 10
         # Start new page if insufficient space
         ensure_space(line_h * 5)
         dr.text((MARGIN_L, y), "Entity Inventory", font=bold_font, fill="black")
@@ -845,7 +849,7 @@ def render_shot_list_pdf(rows: List[Dict[str, Any]], entities: Dict[str, Any], o
             x_positions = [MARGIN_L, MARGIN_L + colw[0] + 12, MARGIN_L + colw[0] + 12 + colw[1] + 12]
             for i, htxt in enumerate(hdrs):
                 dr.text((x_positions[i], y), htxt, font=bold_font, fill="black")
-            y += line_h + 4
+            y += line_h + 2
             dr.line((MARGIN_L, y, PAGE_W - MARGIN_R, y), fill="black")
             y += 6
             for name, meta in sorted(items.items(), key=lambda kv: (-kv[1]['count'], kv[1]['first_index'])):
@@ -854,7 +858,10 @@ def render_shot_list_pdf(rows: List[Dict[str, Any]], entities: Dict[str, Any], o
                 dr.text((x_positions[1], y), str(meta['count']), font=font, fill="black")
                 dr.text((x_positions[2], y), str(meta['first_index']), font=font, fill="black")
                 y += line_h
-            y += 6
+            # Add separator line between entity categories
+            y += 10
+            dr.line((MARGIN_L, y, PAGE_W - MARGIN_R, y), fill="black", width=1)
+            y += 10
 
     pages.append(img)
     pages[0].save(out_path, save_all=True, append_images=pages[1:])
