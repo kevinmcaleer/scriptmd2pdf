@@ -22,7 +22,7 @@
 
         .container {
             max-width: 1200px;
-            margin: 0 auto;
+            margin: 20px auto;
             background: white;
             border-radius: 10px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
@@ -264,18 +264,14 @@
 
         .banner {
             width: 100%;
-            max-height: 200px;
             overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             background: #f8f9fa;
         }
 
         .banner img {
             width: 100%;
             height: auto;
-            object-fit: cover;
+            display: block;
         }
 
         footer {
@@ -329,14 +325,15 @@
     </style>
 </head>
 <body>
+    <div class="banner">
+        <img src="/static/banner.jpg" alt="MD2SCRIPT Banner">
+    </div>
+
     <div class="container">
         <header>
             <h1>MD2SCRIPT</h1>
             <p class="subtitle">Convert Markdown to Professional Screenplay PDFs</p>
         </header>
-        <div class="banner">
-            <img src="/static/banner.jpg" alt="MD2SCRIPT Banner">
-        </div>
         <div class="content">
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('upload')">Upload File</button>
