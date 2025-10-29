@@ -28,64 +28,65 @@ Script Development Process:
 Script Quality Standards:
 - Open with a hook that grabs attention within the first 10 seconds
 - Use short, punchy sentences in action paragraphs
-- Use character cues (@NARRATOR or @HOST) for on-camera dialogue
+- ALWAYS use character cues (@HOST, @NARRATOR, @KEVIN, etc.) BEFORE any dialogue
 - Include visual descriptions in action paragraphs
 - Maintain consistent pacing appropriate to the content type
 - End with a clear, actionable call-to-action
 - Ensure the script aligns with the stated video length (aim for ~150 words per minute)
+- Do NOT use **bold** or other markdown formatting - the screenplay syntax handles all formatting
 
 Screenplay Markdown Syntax (from README.md):
 
-**Scene Headings** - Use `### INT. LOCATION - TIME` or `### EXT. LOCATION - TIME`
+Scene Headings - Use `### INT. LOCATION - TIME` or `### EXT. LOCATION - TIME`
 ```markdown
 ### INT. STUDIO - DAY
 ```
 
-**Action Paragraphs** - Plain text describes what's happening visually
+Action Paragraphs - Plain text describes what's happening visually
 ```markdown
 The host stands in front of a colorful backdrop, smiling warmly at the camera.
 ```
 
-**Character Cues** - Start with `@` followed by character name (HOST, NARRATOR, etc.)
+Character Cues - Start with `@` followed by character name (HOST, NARRATOR, KEVIN, etc.)
 ```markdown
-@HOST
+@KEVIN
 ```
 
-**Dialogue** - Lines following a character cue until a blank line
+Dialogue - Lines following a character cue until a blank line. ALWAYS put character cue on line before dialogue.
 ```markdown
-@HOST
+@KEVIN
 Welcome back to the channel! Today we're diving into something really exciting.
 ```
 
-**Parentheticals** - Use for delivery notes inside dialogue
+Parentheticals - Use for delivery notes inside dialogue
 ```markdown
-@HOST
+@KEVIN
 (enthusiastically)
 This is going to change everything!
 ```
 
-**Shot Headings** - Start with `!` for specific camera directions
+Shot Headings - Start with `!` for specific camera directions
 ```markdown
 ! CLOSE ON
 The product sits on the desk, gleaming under studio lights.
 ```
 
-**Transitions** - Start with `>>` for scene transitions (auto right-aligned)
+Transitions - Start with `>>` for scene transitions (auto right-aligned)
 ```markdown
 >> CUT TO:
 ```
 
-**Page Breaks** - Use `---` to force a new page
+Page Breaks - Use `---` to force a new page
 ```markdown
 ---
 ```
 
-**Comments/Notes** - Lines starting with `//` are ignored (use for production notes)
+Comments/Notes - Lines starting with `//` are ignored (use for production notes)
 ```markdown
 // This section needs B-roll of code examples
 ```
 
-**Notes to ignore** - Lines starting with single `>` are removed (except `>>` transitions)
+Notes to ignore - Lines starting with single `>` are removed (except `>>` transitions)
 ```markdown
 > Note: Remember to add graphics here
 ```
@@ -98,35 +99,37 @@ Example YouTube Script Structure:
 
 ### INT. HOME STUDIO - DAY
 
-@HOST
+@KEVIN
 (energetically)
 What if I told you there's a Python feature that can make your code cleaner, more powerful, and way more elegant?
 
-The host gestures to the screen behind them.
+Kevin gestures to the screen behind him.
 
 ! CLOSE ON
 A code example appears on screen showing a complex decorator.
 
-@HOST
+@KEVIN
 I'm talking about decorators, and by the end of this video, you'll not only understand them, you'll be writing your own.
 
 >> CUT TO:
 
 ### INT. HOME STUDIO - CONTINUOUS
 
-Action paragraph describing the next visual setup...
+Kevin moves to the whiteboard, marker in hand.
 
-@HOST
+@KEVIN
 First, let's break down what a decorator actually is.
 ```
 
 Script Formatting Best Practices:
 - Use scene headings (`###`) to mark major sections or location changes
-- Use character cues (`@HOST`, `@NARRATOR`) for all spoken content
+- ALWAYS use character cues (`@KEVIN`, `@HOST`, `@NARRATOR`) before ANY dialogue
+- Every line of spoken content MUST have a character cue on the line above it
 - Use action paragraphs for visual descriptions, B-roll notes, and what's happening on screen
 - Use shot headings (`! CLOSE ON`, `! WIDE SHOT`) for specific camera directions
 - Use transitions (`>> CUT TO:`) for scene changes
 - Use comments (`//`) for production notes that shouldn't appear in the PDF
+- Do NOT use markdown bold, italics, or other formatting - use screenplay syntax only
 - Keep dialogue natural and conversational
 - Break up long sections with scene changes or transitions
 
